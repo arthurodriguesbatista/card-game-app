@@ -1,13 +1,18 @@
 /* eslint-disable jsx-a11y/alt-text */
 import { useEffect, useState } from 'react';
-
+import Badge from '@mui/material/Badge';
 import { fetcher, mainApi } from '../../api/apiService';
 import { DeckCard, Game, Player } from './interface';
 import {
   Box,
   Button,
+  FormControl,
   Grid,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
+  SelectChangeEvent,
   styled,
   TextField,
   Typography,
@@ -21,18 +26,30 @@ const BorderPaper = styled(Paper)({
   borderRadius: 20,
   borderColor: '#000000',
   padding: 50,
+  overflow: 'scroll',
+  maxHeight: '100%',
+  display: 'block',
 });
 
 type MultiOptions =
   | 'ADD_PLAYER'
   | 'SHOW_PLAYER_CARDS'
   | 'SHOW_PLAYERS_CARDS'
-  | 'REMAINDING_CARDS'
-  | 'REMAINDING_SORTED_CARDS';
+  | 'REMAINDING_SORTED_CARDS'
+  | 'ADD_DECK';
+
+const modalTitiles = {
+  ADD_PLAYER: 'Choose a name',
+  SHOW_PLAYER_CARDS: 'Choose a player',
+  SHOW_PLAYERS_CARDS: 'Player ranking',
+  REMAINDING_SORTED_CARDS: 'Remaining cards from shoe',
+  ADD_DECK: '',
+};
 
 function PlayGame() {
   const navigate = useNavigate();
   const location = useLocation();
+
   const createPlayerContent = () => (
     <div>
       <TextField
@@ -49,23 +66,166 @@ function PlayGame() {
     </div>
   );
 
+  const ShowPlayerCardsContent = () => {
+    const [player, setPlayer] = useState<Player>();
+    const handleChange = (event: SelectChangeEvent) => {
+      setPlayer(
+        game?.players?.find((p) => p.id?.toString() === event.target.value)
+      );
+    };
+    return (
+      <Grid container spacing={3}>
+        <Grid item xs={12}>
+          <FormControl fullWidth>
+            <InputLabel>Player</InputLabel>
+            <Select
+              label='playerSelect'
+              id='playerSelect'
+              value={player?.id?.toString()}
+              variant='standard'
+              onChange={handleChange}
+            >
+              {game?.players?.map((player) => (
+                <MenuItem value={player.id.toString()}>{player.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid item xs={12}>
+          <Grid container spacing={2}>
+            {player?.playerCards?.map((playerCard) => (
+              <Grid item xs={3}>
+                <Grid container justifyContent='center' alignItems='center'>
+                  <img
+                    height={100}
+                    width={70}
+                    src={
+                      playerCard?.deckCard?.card?.face +
+                      '_' +
+                      playerCard?.deckCard?.card?.suit +
+                      '.png'
+                    }
+                  />
+                </Grid>
+              </Grid>
+            ))}
+          </Grid>
+        </Grid>
+      </Grid>
+    );
+  };
+
+  const ShowPlayersCardsContent = () => {
+    const playersCardsValue = game?.players?.map((player) => ({
+      player,
+      value: player.playerCards.reduce(
+        (pv, cv) => cv.deckCard.card.value + pv,
+        0
+      ),
+    }));
+    const sortedPlayersByValue = playersCardsValue?.sort(
+      (a, b) => b.value - a.value
+    );
+    return (
+      <Grid container spacing={2}>
+        {sortedPlayersByValue?.map((rankedPlayer, index) => (
+          <Grid item xs={12}>
+            <Typography fontWeight='bold' align='center' variant='body2'>
+              Rank {index + 1}: {rankedPlayer.player.name} with{' '}
+              {rankedPlayer.value} points
+            </Typography>
+          </Grid>
+        ))}
+      </Grid>
+    );
+  };
+
+  const UndealtCardsContent = () => {
+    const suitsPerUndealtCards = ['HEARTS', 'SPADES', 'CLUBS', 'DIAMONDS']
+      ?.map((suit) => ({
+        name: suit,
+        amountCards: shoe.reduce(
+          (pv, cv) => (cv.card.suit === suit ? 1 : 0) + pv,
+          0
+        ),
+      }))
+      ?.concat(
+        [
+          'KING',
+          'QUEEN',
+          'JACK',
+          '10',
+          '9',
+          '8',
+          '7',
+          '6',
+          '5',
+          '4',
+          '3',
+          '2',
+          'ACE',
+        ]?.map((face) => ({
+          name: face,
+          amountCards: shoe.reduce(
+            (pv, cv) => (cv.card.face === face ? 1 : 0) + pv,
+            0
+          ),
+        }))
+      );
+
+    return (
+      <Grid container spacing={2}>
+        {suitsPerUndealtCards?.map((sortedSuit) => (
+          <Grid item xs={12}>
+            <Typography fontWeight='bold' align='center' variant='body2'>
+              {sortedSuit.name} remaining: {sortedSuit.amountCards}
+            </Typography>
+          </Grid>
+        ))}
+      </Grid>
+    );
+  };
+
   const createPlayerAction = () => (
     <div>
       <Button onClick={() => setModal({ open: false })}>Cancel</Button>
-      <Button disabled={!createPlayer?.length} onClick={() => addPlayer()}>
+      <Button
+        disabled={!createPlayer?.length}
+        onClick={async () => {
+          await addPlayer();
+          setModal({ open: false });
+        }}
+      >
         Add Player
       </Button>
     </div>
   );
 
-  const addPlayer = () => {
-    mainApi
-      .post('/game' + location.pathname + '/player', {
-        playerName: createPlayer,
-      })
-      .then(fetchGame)
-      .then(() => setCreatePlayer(''))
-      .then(() => setModal({ open: false }));
+  const addPlayer = async () => {
+    await mainApi.post('/game' + location.pathname + '/player', {
+      playerName: createPlayer,
+    });
+    await fetchGame();
+  };
+
+  const addDeck = async () => {
+    await mainApi.post('/game' + location.pathname + '/deck');
+    await fetchGame();
+  };
+
+  const deletePlayer = async (playerId: number) => {
+    if (
+      game?.players?.length &&
+      game?.players?.length > 1 &&
+      currentPlayer?.id === playerId
+    ) {
+      changePlayer();
+    } else if (game?.players?.length && game?.players?.length === 1) {
+      setCurrentPlayer(undefined);
+    }
+    await mainApi.delete('/game' + location.pathname + '/player/' + playerId);
+
+    await fetchGame();
   };
 
   const [game, setGame] = useState<Game>();
@@ -81,50 +241,64 @@ function PlayGame() {
 
   const [currentPlayer, setCurrentPlayer] = useState<Player>();
 
-  const fetchInicialGame = async () => {
-    await fetchGame();
-    setCurrentPlayer(game?.players[0]);
-  };
-
   const fetchGame = async () => {
     const res = await fetcher('/game' + location.pathname);
-    console.log(res);
     setGame(res);
     setShoe(res.shoe);
+    if (!currentPlayer && res) {
+      setCurrentPlayer(res?.players[0]);
+    }
   };
   const changePlayer = () => {
     const currentPlayerIndex = game?.players.findIndex(
       (player) => player.id === currentPlayer?.id
     );
-    if (currentPlayerIndex && currentPlayerIndex + 1 === game?.players.length) {
+    if (
+      currentPlayerIndex !== undefined &&
+      currentPlayerIndex + 1 === game?.players.length
+    ) {
       setCurrentPlayer(game?.players[0]);
-    } else if (currentPlayerIndex) {
+    } else if (currentPlayerIndex !== undefined) {
       setCurrentPlayer(game?.players[currentPlayerIndex + 1]);
+    } else {
+      setCurrentPlayer(undefined);
     }
   };
   const handleFlipCardFromShoe = async () => {
-    setIsFlipped(true);
-    if (shoe?.length) {
-      const topCardFromShoe = shoe?.pop();
-      mainApi
-        .post(
-          `/game/${game?.id}/player/${currentPlayer?.id}/card/${topCardFromShoe?.id}`
-        )
-        .then(changePlayer)
-        .then(fetchGame);
+    if (currentPlayer && game?.shoe?.length) {
+      setIsFlipped(true);
+      return setTimeout(async () => {
+        setIsFlipped(false);
+        if (shoe?.length && currentPlayer) {
+          const topCardFromShoe = shoe[shoe?.length - 1];
+          await mainApi.post(
+            `/game/${game?.id}/player/${currentPlayer?.id}/card/${topCardFromShoe?.id}`
+          );
+          changePlayer();
+          await fetchGame();
+        }
+      }, 1000);
     }
   };
 
   const handleMultiContentOption = () => {
     if (modal.option === 'ADD_PLAYER') return createPlayerContent;
+    if (modal.option === 'SHOW_PLAYER_CARDS') return ShowPlayerCardsContent;
+    if (modal.option === 'SHOW_PLAYERS_CARDS') return ShowPlayersCardsContent;
+    if (modal.option === 'REMAINDING_SORTED_CARDS') return UndealtCardsContent;
   };
 
   const handleMultiActionOption = () => {
     if (modal.option === 'ADD_PLAYER') return createPlayerAction;
   };
 
+  const shuffle = async () => {
+    await mainApi.post(`/game/${game?.id}/suffle`);
+    await fetchGame();
+  };
+
   useEffect(() => {
-    fetchInicialGame();
+    fetchGame();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
@@ -141,6 +315,11 @@ function PlayGame() {
               <img
                 height={200}
                 width={150}
+                style={
+                  currentPlayer && game?.shoe?.length
+                    ? { cursor: 'pointer' }
+                    : undefined
+                }
                 src='https://opengameart.org/sites/default/files/card%20back%20black.png'
                 onClick={handleFlipCardFromShoe}
               />
@@ -150,13 +329,27 @@ function PlayGame() {
               <img
                 height={200}
                 width={150}
-                src='http://localhost:3030/public/2_HEARTS.png'
+                src={
+                  shoe?.length
+                    ? `${shoe[shoe?.length - 1]?.card?.face}_${
+                        shoe[shoe?.length - 1]?.card?.suit
+                      }.png`
+                    : ''
+                }
               />
             </Grid>
           </ReactCardFlip>
         </Grid>
         <Grid item xs={12}>
-          <Button></Button>
+          <Grid container justifyContent='center' alignItems='center'>
+            <Button
+              disabled={!game?.shoe?.length}
+              onClick={shuffle}
+              variant='outlined'
+            >
+              Shuffle
+            </Button>
+          </Grid>
         </Grid>
         <Grid item xs={12}>
           <BorderPaper square={true} elevation={2}>
@@ -170,20 +363,44 @@ function PlayGame() {
                 <Grid container>
                   {game?.players?.map((player) => (
                     <Grid key={player.id + '_player'} item xs={2}>
-                      <img
-                        height={200}
-                        width={150}
-                        src={player.deckCards[-1]?.card?.imageUrl}
-                        onClick={() => setIsFlipped(false)}
-                      />
-                      <Typography
-                        color={
-                          player.id === currentPlayer?.id ? 'red' : 'black'
-                        }
-                        variant='body1'
+                      <Grid
+                        container
+                        justifyContent='center'
+                        alignItems='center'
                       >
-                        {player.name}: {player.deckCards?.length || 0} cards
-                      </Typography>
+                        <Badge
+                          onClick={() => deletePlayer(player.id)}
+                          color='error'
+                          badgeContent='X'
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <img
+                            height={200}
+                            width={150}
+                            src={
+                              player?.playerCards?.length
+                                ? player?.playerCards[
+                                    player?.playerCards?.length - 1
+                                  ]?.deckCard?.card?.face +
+                                  '_' +
+                                  player?.playerCards[
+                                    player?.playerCards?.length - 1
+                                  ]?.deckCard?.card?.suit +
+                                  '.png'
+                                : 'https://opengameart.org/sites/default/files/card%20back%20black.png'
+                            }
+                          />
+                        </Badge>
+                        <Typography
+                          color={
+                            player.id === currentPlayer?.id ? 'red' : 'black'
+                          }
+                          variant='body1'
+                          align='center'
+                        >
+                          {player.name}: {player.playerCards?.length || 0} cards
+                        </Typography>
+                      </Grid>
                     </Grid>
                   ))}
                 </Grid>
@@ -194,24 +411,28 @@ function PlayGame() {
         <Dialog
           open={modal.open}
           handleClose={() => setModal({ open: false })}
-          title='Add a player'
+          title={modal.option ? modalTitiles[modal.option] : ''}
           content={handleMultiContentOption()}
           actions={handleMultiActionOption()}
         />
         <MulipleButton
-          onClick={(option) =>
-            setModal({ open: true, option: option as MultiOptions })
-          }
+          onClick={async (option) => {
+            if ((option as MultiOptions) === 'ADD_DECK') {
+              await addDeck();
+            } else {
+              setModal({ open: true, option: option as MultiOptions });
+            }
+          }}
           options={[
             { name: 'Add Player', value: 'ADD_PLAYER' },
-            { name: "Show Player's Cards", value: 'SHOW_PLAYER_CARDS' },
+            { name: 'Add Deck', value: 'ADD_DECK' },
+            { name: "Player's Cards", value: 'SHOW_PLAYER_CARDS' },
             {
-              name: "Show All Player's Game Cards",
+              name: 'Player Ranking',
               value: 'SHOW_PLAYERS_CARDS',
             },
-            { name: 'Show Remainding Game Cards', value: 'REMAINDING_CARDS' },
             {
-              name: 'Show Remainding Sorted Game Cards',
+              name: 'Undealt Cards from shoe',
               value: 'REMAINDING_SORTED_CARDS',
             },
           ]}

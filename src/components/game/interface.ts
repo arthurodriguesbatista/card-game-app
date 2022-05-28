@@ -8,7 +8,12 @@ export interface Game {
 export interface Player {
   id: number;
   name: string;
-  deckCards: DeckCard[];
+  playerCards: PlayerCard[];
+}
+
+export interface PlayerCard {
+  id: number;
+  deckCard: DeckCard;
 }
 
 export interface DeckCard {
@@ -20,7 +25,6 @@ interface Card {
   suit: string;
   face: string;
   value: number;
-  imageUrl: string;
 }
 
 export interface CreateGame {

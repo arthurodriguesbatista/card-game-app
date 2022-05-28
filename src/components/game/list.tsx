@@ -105,19 +105,11 @@ function GameList() {
   };
 
   const handleCreate = async () => {
-    mainApi
-      .post('/game', {
-        name: createGame.name,
-        playerName: createGame.playerName,
-      })
-      .then(() => setOpen(false))
-      .then(fetchGames)
-      .then(() =>
-        setCreateGame({
-          name: '',
-          playerName: '',
-        })
-      );
+    const res = await mainApi.post('/game', {
+      name: createGame.name,
+      playerName: createGame.playerName,
+    });
+    navigate('/' + res?.data?.id);
   };
 
   const [rows, setRows] = useState<Game[]>([]);
