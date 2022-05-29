@@ -22,6 +22,11 @@ import ReactCardFlip from 'react-card-flip';
 import { useLocation, useNavigate } from 'react-router';
 import ReturnButton from '../returnButton';
 import MulipleButton from '../multipleButton';
+import {
+  ShowPlayerCardsContent,
+  ShowPlayersCardsContent,
+  UndealtCardsContent,
+} from './gameOptions';
 const BorderPaper = styled(Paper)({
   borderRadius: 20,
   borderColor: '#000000',
@@ -65,126 +70,6 @@ function PlayGame() {
       />
     </div>
   );
-
-  const ShowPlayerCardsContent = () => {
-    const [player, setPlayer] = useState<Player>();
-    const handleChange = (event: SelectChangeEvent) => {
-      setPlayer(
-        game?.players?.find((p) => p.id?.toString() === event.target.value)
-      );
-    };
-    return (
-      <Grid container spacing={3}>
-        <Grid item xs={12}>
-          <FormControl fullWidth>
-            <InputLabel>Player</InputLabel>
-            <Select
-              label='playerSelect'
-              id='playerSelect'
-              value={player?.id?.toString()}
-              variant='standard'
-              onChange={handleChange}
-            >
-              {game?.players?.map((player) => (
-                <MenuItem value={player.id.toString()}>{player.name}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Grid>
-        <Grid item xs={12}>
-          <Grid container spacing={2}>
-            {player?.playerCards?.map((playerCard) => (
-              <Grid item xs={3}>
-                <Grid container justifyContent='center' alignItems='center'>
-                  <img
-                    height={100}
-                    width={70}
-                    src={
-                      playerCard?.deckCard?.card?.face +
-                      '_' +
-                      playerCard?.deckCard?.card?.suit +
-                      '.png'
-                    }
-                  />
-                </Grid>
-              </Grid>
-            ))}
-          </Grid>
-        </Grid>
-      </Grid>
-    );
-  };
-
-  const ShowPlayersCardsContent = () => {
-    const playersCardsValue = game?.players?.map((player) => ({
-      player,
-      value: player.playerCards.reduce(
-        (pv, cv) => cv.deckCard.card.value + pv,
-        0
-      ),
-    }));
-    const sortedPlayersByValue = playersCardsValue?.sort(
-      (a, b) => b.value - a.value
-    );
-    return (
-      <Grid container spacing={2}>
-        {sortedPlayersByValue?.map((rankedPlayer, index) => (
-          <Grid item xs={12}>
-            <Typography fontWeight='bold' align='center' variant='body2'>
-              Rank {index + 1}: {rankedPlayer.player.name} with{' '}
-              {rankedPlayer.value} points
-            </Typography>
-          </Grid>
-        ))}
-      </Grid>
-    );
-  };
-
-  const UndealtCardsContent = () => {
-    const suitsPerUndealtCards = ['HEARTS', 'SPADES', 'CLUBS', 'DIAMONDS']
-      ?.map((suit) => ({
-        name: suit,
-        amountCards: shoe.reduce(
-          (pv, cv) => (cv.card.suit === suit ? 1 : 0) + pv,
-          0
-        ),
-      }))
-      ?.concat(
-        [
-          'KING',
-          'QUEEN',
-          'JACK',
-          '10',
-          '9',
-          '8',
-          '7',
-          '6',
-          '5',
-          '4',
-          '3',
-          '2',
-          'ACE',
-        ]?.map((face) => ({
-          name: face,
-          amountCards: shoe.reduce(
-            (pv, cv) => (cv.card.face === face ? 1 : 0) + pv,
-            0
-          ),
-        }))
-      );
-
-    return (
-      <Grid container spacing={2}>
-        {suitsPerUndealtCards?.map((sortedSuit) => (
-          <Grid item xs={12}>
-            <Typography fontWeight='bold' align='center' variant='body2'>
-              {sortedSuit.name} remaining: {sortedSuit.amountCards}
-            </Typography>
-          </Grid>
-        ))}
-      </Grid>
-    );
-  };
 
   const createPlayerAction = () => (
     <div>
@@ -283,9 +168,12 @@ function PlayGame() {
 
   const handleMultiContentOption = () => {
     if (modal.option === 'ADD_PLAYER') return createPlayerContent;
-    if (modal.option === 'SHOW_PLAYER_CARDS') return ShowPlayerCardsContent;
-    if (modal.option === 'SHOW_PLAYERS_CARDS') return ShowPlayersCardsContent;
-    if (modal.option === 'REMAINDING_SORTED_CARDS') return UndealtCardsContent;
+    if (modal.option === 'SHOW_PLAYER_CARDS')
+      return () => ShowPlayerCardsContent(game);
+    if (modal.option === 'SHOW_PLAYERS_CARDS')
+      return () => ShowPlayersCardsContent(game);
+    if (modal.option === 'REMAINDING_SORTED_CARDS')
+      return () => UndealtCardsContent(shoe);
   };
 
   const handleMultiActionOption = () => {
