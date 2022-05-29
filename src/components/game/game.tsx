@@ -6,13 +6,8 @@ import { DeckCard, Game, Player } from './interface';
 import {
   Box,
   Button,
-  FormControl,
   Grid,
-  InputLabel,
-  MenuItem,
   Paper,
-  Select,
-  SelectChangeEvent,
   styled,
   TextField,
   Typography,
